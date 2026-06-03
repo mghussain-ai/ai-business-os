@@ -1,0 +1,304 @@
+{
+  "name": "AI-Business-OS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-lead",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -496,
+        -272
+      ],
+      "id": "8cf97eef-7a23-4c2d-b6b9-8ac6fcb3ae31",
+      "name": "Webhook",
+      "webhookId": "0ba08eda-ad85-4602-8d0b-9caf200dd7c6"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an advanced AI business operations assistant.\n\nYour job is to analyze business leads professionally and generate completely unique outputs every time.\n\nIMPORTANT RULES:\n\n- Everything must be in English only\n\n- Return plain text only\n\n- Do NOT use markdown\n\n- Do NOT use bullet points\n\n- Do NOT use stars (**)\n\n- Never repeat the same wording\n\n- Never use generic business templates\n\n- Never start replies with:\n  \"Thank you for contacting us\"\n  \"We appreciate your interest\"\n  \"Dear customer\"\n\n- Every response must feel human-written\n\n- Every summary must be different\n\n- Every category must be based on the actual message\n\n- Every reply must directly mention the lead’s business problem or request\n\n- Replies must sound modern, smart, and professional\n\n- Keep responses concise but intelligent\n\n- Use different sentence structures every time\n\n- Understand the customer's intent before generating output\n\n- If the customer sounds urgent or business-critical, set priority to High\n\n- If the inquiry is normal business discussion, set priority to Medium\n\n- If the inquiry is casual or low intent, set priority to Low\n\nReturn EXACTLY in this format:\n\nSUMMARY: [unique short business summary]\n\nCATEGORY: [Sales / Automation / CRM / Support / AI Services / SaaS / Technology / Business / Marketing / Other]\n\nPRIORITY: [Low / Medium / High]\n\nREPLY: [unique personalized professional business response]\n\nLead Details:\n\nName: {{ $json.body.Full_name }}\n\nCompany: {{ $json.body.Company }}\n\nEmail: {{ $json.body.Email }}\n\nMessage: {{ $json.body.Message }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -288,
+        -272
+      ],
+      "id": "24fd0571-5b52-4f98-9046-2ff0c76ccfe3",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-3-8b-instruct",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        -112
+      ],
+      "id": "512bbc4a-18b6-476d-90bb-8d4ebfa21813",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "qBfwMRyc3GbtKkeS",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $json.output || \"\";\n\nfunction extractValue(label, nextLabel) {\n  const regex = new RegExp(\n    `${label}:\\\\s*([\\\\s\\\\S]*?)${nextLabel ? nextLabel + \":\" : \"$\"}`,\n    \"i\"\n  );\n\n  const match = text.match(regex);\n\n  return match ? match[1].trim() : \"\";\n}\n\nconst summary = extractValue(\"SUMMARY\", \"CATEGORY\");\nconst category = extractValue(\"CATEGORY\", \"PRIORITY\");\nconst priority = extractValue(\"PRIORITY\", \"REPLY\");\nconst reply = extractValue(\"REPLY\", null);\n\nreturn [\n  {\n    json: {\n      ai_summary: summary || \"No Summary\",\n      ai_category: category || \"Other\",\n      ai_priority: priority || \"Medium\",\n      ai_reply: reply || text,\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -272
+      ],
+      "id": "fcd9832a-030d-4aa2-a3b4-95dd1fca5ff4",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "tableId": "leads",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "Full_name",
+              "fieldValue": "={{ $('Webhook').item.json.body.Full_name }}"
+            },
+            {
+              "fieldId": "Email",
+              "fieldValue": "={{ $('Webhook').item.json.body.Email }}"
+            },
+            {
+              "fieldId": "Company",
+              "fieldValue": "={{ $('Webhook').item.json.body.Company }}"
+            },
+            {
+              "fieldId": "Message",
+              "fieldValue": "={{ $('Webhook').item.json.body.Message }}"
+            },
+            {
+              "fieldId": "Ai_summary",
+              "fieldValue": "={{ $json.ai_summary }}"
+            },
+            {
+              "fieldId": "Ai_category",
+              "fieldValue": "={{ $json.ai_category }}"
+            },
+            {
+              "fieldId": "Ai_priority",
+              "fieldValue": "={{ $json.ai_priority }}"
+            },
+            {
+              "fieldId": "Ai_reply",
+              "fieldValue": "={{ $json.ai_reply }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -272
+      ],
+      "id": "7a261a9e-dafe-4d9f-a80a-7630a1d17758",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "ENzSBsUEEVuTM0uT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.Email }}",
+        "subject": "AI Consultation Request Received",
+        "emailType": "text",
+        "message": "=Hi{{ $('Webhook').item.json.body.Full_name }},\nYour request has been successfully received and analyzed by our AI Lead Management System.\n\nOur team will review your inquiry and get back to you shortly.\nBest regards,\n{{ $('Webhook').item.json.body.Company }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        704,
+        -384
+      ],
+      "id": "eb9cd997-4892-44e1-bfa2-7ed1d703f35f",
+      "name": "Send a message",
+      "webhookId": "44eb979d-2d48-46b0-90e1-e35c89a7b40e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "LHxscjSPfCCRJhns",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2c44553c-91be-429a-a832-a0b857bda1c4",
+              "leftValue": "={{ $('Code in JavaScript').item.json.ai_priority }}",
+              "rightValue": "Medium",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        496,
+        -272
+      ],
+      "id": "9dece30f-e333-4792-9b8c-84a57de87113",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "8271668963",
+        "text": "=🚨 New Lead Received\nName:{{ $json.Full_name }} \nCompany: {{ $json.Company }}\nEmail: {{ $json.Email }}\nCategory:{{ $json.Ai_category }}\nPriority: {{ $json.Ai_priority }}\n\nSummary: {{ $json.Ai_summary }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        320,
+        -272
+      ],
+      "id": "346ebb79-e0f3-45ab-b17a-5d37f8dca9d7",
+      "name": "Send a text message",
+      "webhookId": "fc6c8afc-0fc4-4969-bc1e-85e2da683c54",
+      "credentials": {
+        "telegramApi": {
+          "id": "pjtTzl6FUsSIBj9N",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        []
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5db170cf-406b-4f1b-ae90-670857119743",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0e61c90a938d828ddaafd0fc7cee05e7951a0190b73d0a5cca3e7e26893e3a32"
+  },
+  "id": "T55wfw8UKVObDSfN",
+  "tags": []
+}
